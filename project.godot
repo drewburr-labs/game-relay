@@ -1,0 +1,11 @@
+; Engine configuration file.
+; Open with Godot 4.7 (standard build, not .NET). There's no scene here: the
+; relay's scripts run headless with --script (see README.md).
+
+config_version=5
+
+[application]
+
+config/name="Game relay"
+config/description="A room-code relay for online games: players behind home routers play together without port forwarding."
+config/features=PackedStringArray("4.7")

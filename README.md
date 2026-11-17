@@ -1,10 +1,10 @@
-# Saucer Showdown relay
+# Game relay
 
 A relay for online games, so players behind home routers can play together without port forwarding. A host opens a room and gets a five-letter code; friends join with the code; the relay passes each room's packets between its host and clients without reading them.
 
-Saucer Showdown uses it, but **any game can**: rooms belong to a game id, the host picks the room size, and packets keep their channel and reliability. There's a public one at `saucer.drewburr.com:24680`, or you can run your own from the image.
+**Any game can use it**: rooms belong to a game id, the host picks the room size, and packets keep their channel and reliability. There's a public one at `saucer.drewburr.com:24680`, or you can run your own from the image. It was built for [Saucer Showdown](https://github.com/drewburr-labs/saucer-showdown), which plays through the public one.
 
-It's plain GDScript running on a headless Godot, packaged as a container. Everything the image needs is in this folder.
+It's plain GDScript running on a headless Godot 4.7, packaged as a container.
 
 | File | What it is |
 | --- | --- |
@@ -16,9 +16,10 @@ It's plain GDScript running on a headless Godot, packaged as a container. Everyt
 | `relay_client.gd` | a Godot game's side of the relay: host, join, send, receive. Depends only on `relay_protocol.gd` |
 | `example/chat.gd` | the smallest game that uses the relay, to copy from |
 | `relay_probe.gd` | checks a running relay end to end |
+| `tests/test_relay_metrics.gd` | a relay with a few games going over loopback, scraped like Prometheus would |
 | `Dockerfile` | the image: pinned Godot and tini, linux/amd64 and linux/arm64 |
 
-The scripts load each other by relative path, so they work both from the game's project (`res://relay/...`) and on their own in the image. Don't give this folder its own `project.godot`: Godot would then skip it in the game's project, and the game's exports would lose `relay_protocol.gd` and `relay_client.gd`. The image writes a one-line project file instead.
+The scripts load each other by relative path, so they work here, in the image, and from whatever folder a game copies them into. The commands below run from this folder.
 
 ## Use it in your game
 
@@ -57,14 +58,14 @@ Send with `relay.send(to, bytes, channel, flags)`. A client's packets always go 
 
 `relay_client.gd` sends bytes. It doesn't drive Godot's high-level multiplayer API (RPCs, `MultiplayerSynchronizer`). Encode your messages yourself, for example with `var_to_bytes` and `bytes_to_var` (never `allow_objects`), and check what arrives before trusting it.
 
-Try the example against the public relay, in two terminals:
+Try the example against the public relay, in two terminals, from a clone of this repo:
 
 ```bash
-godot --headless --path . --script res://relay/example/chat.gd -- host
+godot --headless --path . --script res://example/chat.gd -- host
 ```
 
 ```bash
-godot --headless --path . --script res://relay/example/chat.gd -- join KX4PZ
+godot --headless --path . --script res://example/chat.gd -- join KX4PZ
 ```
 
 ### Channels and reliability
@@ -108,37 +109,43 @@ Refusals: 1 bad request, 2 outdated (a different protocol version), 3 relay full
 ## Run it
 
 ```bash
-docker run -p 24680:24680/udp ghcr.io/drewburr-labs/saucer-showdown-relay
+docker run -p 24680:24680/udp ghcr.io/drewburr-labs/game-relay
 ```
 
 - It needs **UDP** port 24680 reachable from the internet. An HTTP proxy or tunnel won't carry it.
 - It keeps no state and logs to stdout, one line per room opened and closed, with its game id. Idle, it uses well under 1% of a core and about 35 MB.
 - It serves [metrics](#metrics) on **TCP** port 24681. That port is for you, not the internet: the command above doesn't publish it.
 - Options go after the image name: `--port=N`, `--bind=ADDRESS`, `--metrics-port=N` and `--metrics-bind=ADDRESS`. Options replace the image's defaults, so repeat `--metrics-port=24681` to keep metrics on (leave it out and they're off).
-- Saucer Showdown connects to `saucer.drewburr.com:24680` (`HOST_NAME` and `PORT` in `relay_protocol.gd`). Players can point a build elsewhere with `-- --relay=HOST[:PORT]`.
+- `HOST_NAME` and `PORT` in `relay_protocol.gd` are the public relay, `saucer.drewburr.com:24680`. To have your game use your own, pass your address to `host()` and `join()` instead.
 
 ## Build it
 
 ```bash
-docker build -t saucer-showdown-relay relay
+docker build -t game-relay .
 ```
 
 ```bash
-docker run --rm -p 24680:24680/udp saucer-showdown-relay
+docker run --rm -p 24680:24680/udp game-relay
 ```
 
-Without Docker, from the game's folder (metrics are off unless you give them a port):
+Without Docker (metrics are off unless you give them a port):
 
 ```bash
-godot --headless --path . --script res://relay/run_relay.gd -- --port=24680 --metrics-port=24681
+godot --headless --path . --script res://run_relay.gd -- --port=24680 --metrics-port=24681
 ```
 
-CI (`.github/workflows/relay-image.yml`) builds the image whenever something in this folder (or the workflow) changes, except `example/`, which isn't in the image. It smoke-tests the image with the probe, reads its metrics, and on `main` pushes it to `ghcr.io/drewburr-labs/saucer-showdown-relay` as `latest` and `sha-<commit>`. Changes elsewhere in the repo leave the image alone; "Run workflow" rebuilds it by hand.
+CI (`.github/workflows/image.yml`) runs the tests and builds the image on every change except to the docs and `example/`, which aren't in the image. It smoke-tests the image with the probe, reads its metrics, and on `main` pushes it to `ghcr.io/drewburr-labs/game-relay` as `latest` and `sha-<commit>`. "Run workflow" rebuilds it by hand.
+
+Run the tests yourself with:
+
+```bash
+godot --headless --path . --script tests/test_relay_metrics.gd
+```
 
 ## Check a relay
 
 ```bash
-godot --headless --path . --script res://relay/relay_probe.gd -- saucer.drewburr.com
+godot --headless --path . --script res://relay_probe.gd -- saucer.drewburr.com
 ```
 
 It opens a room, checks that a different game id can't join it, joins as a friend and passes a packet each way on channel 1. Then it exits 0, or 1 with the step that failed.
@@ -157,7 +164,7 @@ curl http://localhost:24681/metrics
 
 ```yaml
 scrape_configs:
-  - job_name: saucer-relay
+  - job_name: game-relay
     static_configs:
       - targets: ["relay:24681"]
 ```
@@ -211,4 +218,6 @@ Game ids come from whoever connects, so only the first 32 the relay sees get a `
 
 ## Compatibility
 
-The relay never reads game messages, so game updates don't need a new relay. Bump `VERSION` in `relay_protocol.gd` only when the relay's own wire format changes. A client with a different `VERSION` is refused as outdated, so release updated games alongside the new relay. Version 2 added game ids, room sizes and channels; version 1 clients (Saucer Showdown before this change) are told to update.
+The relay never reads game messages, so game updates don't need a new relay. Bump `VERSION` in `relay_protocol.gd` only when the relay's own wire format changes. A client with a different `VERSION` is refused as outdated, so release updated games alongside the new relay. Version 2 added game ids, room sizes and channels; version 1 clients (early Saucer Showdown builds) are told to update.
+
+Releases of this repo are tagged. A game that copies `relay_protocol.gd` and `relay_client.gd` should note the tag it copied from; Saucer Showdown keeps its copy in `relay/`, refreshed from a pinned tag by a script.

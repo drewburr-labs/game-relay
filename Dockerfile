@@ -1,17 +1,15 @@
 # syntax=docker/dockerfile:1
 #
-# The Saucer Showdown relay server: lets players behind home routers play
-# online without port forwarding, for Saucer Showdown or any other game (see
-# README.md). It listens on UDP 24680, and serves its metrics for Prometheus
+# The game relay server: lets players behind home routers play online
+# without port forwarding, for any game (see README.md). It listens on UDP 24680, and serves its metrics for Prometheus
 # over HTTP on TCP 24681. Publish only the UDP port to the internet; scrape
 # the metrics from inside your own network.
 #
-#   docker build -t saucer-showdown-relay relay
-#   docker run -p 24680:24680/udp saucer-showdown-relay
+#   docker build -t game-relay .
+#   docker run -p 24680:24680/udp game-relay
 #
-# It runs the relay's GDScript (this folder) on a headless Godot. The build
-# context is this folder alone, and CI (relay-image.yml) rebuilds the image
-# only when something in it changes.
+# It runs the relay's GDScript (this folder) on a headless Godot. CI
+# (.github/workflows/image.yml) tests, builds and pushes it.
 
 ARG GODOT_VERSION=4.7.2
 ARG TINI_VERSION=0.19.0
@@ -50,19 +48,15 @@ RUN set -eu; \
 	chmod 0755 /tini
 
 FROM debian:bookworm-slim
-LABEL org.opencontainers.image.title="Saucer Showdown relay" \
-	org.opencontainers.image.description="Room-code relay for online games, Saucer Showdown's and any other (UDP 24680)" \
-	org.opencontainers.image.source="https://github.com/drewburr-labs/saucer-showdown"
+LABEL org.opencontainers.image.title="Game relay" \
+	org.opencontainers.image.description="Room-code relay for online games (UDP 24680)" \
+	org.opencontainers.image.source="https://github.com/drewburr-labs/game-relay"
 COPY --from=godot /godot /usr/local/bin/godot
 COPY --from=godot /tini /usr/local/bin/tini
 WORKDIR /relay
-# Godot only needs a project file to treat /relay as a project. (relay/ has
-# none of its own: Godot would then skip the folder in the game's project,
-# and the game needs relay_protocol.gd from it.)
-COPY <<EOF project.godot
-config_version=5
-EOF
-COPY relay_protocol.gd relay_server.gd relay_metrics.gd relay_metrics_http.gd run_relay.gd ./
+# Only what the server runs: no client, probe, example or tests. A new server
+# script needs adding here.
+COPY project.godot relay_protocol.gd relay_server.gd relay_metrics.gd relay_metrics_http.gd run_relay.gd ./
 # Godot keeps its user data under HOME; give it somewhere writable. (It also
 # logs a harmless "libfontconfig.so.1" line at startup: there are no fonts
 # to load on a headless server.)

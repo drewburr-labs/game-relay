@@ -1,27 +1,23 @@
-name: Relay image
+name: Image
 
-# Builds the relay server's container image (relay/Dockerfile), checks it with
-# relay/relay_probe.gd and by reading its metrics, and on main pushes it to GHCR as :latest and
-# :sha-<short>, for linux/amd64 and linux/arm64. Pull requests build and
-# test it without pushing.
+# Runs the relay's tests, builds its container image (Dockerfile), checks the
+# image with relay_probe.gd and by reading its metrics, and on main pushes it
+# to GHCR as :latest and :sha-<short>, for linux/amd64 and linux/arm64. Pull
+# requests test and build it without pushing.
 #
-# It only runs when relay/ changes (everything in the image comes from
-# there; relay/example/ isn't in it), or this file, which decides how the
-# image is built. "Run workflow"
-# rebuilds by hand, say for a newer base image.
+# Docs and example/ aren't in the image, so changes to them alone don't run
+# it. "Run workflow" rebuilds by hand, say for a newer base image.
 
 on:
   push:
     branches: [main]
-    paths:
-      - "relay/**"
-      - "!relay/example/**"
-      - ".github/workflows/relay-image.yml"
+    paths-ignore:
+      - "**.md"
+      - "example/**"
   pull_request:
-    paths:
-      - "relay/**"
-      - "!relay/example/**"
-      - ".github/workflows/relay-image.yml"
+    paths-ignore:
+      - "**.md"
+      - "example/**"
   workflow_dispatch:
 
 permissions:
@@ -29,12 +25,12 @@ permissions:
   packages: write
 
 concurrency:
-  group: relay-image-${{ github.ref }}
+  group: image-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   GODOT_VERSION: 4.7.2
-  IMAGE: ghcr.io/${{ github.repository_owner }}/saucer-showdown-relay
+  IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
   image:
@@ -42,18 +38,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Build for the smoke test
-        uses: docker/build-push-action@v6
-        with:
-          context: relay
-          platforms: linux/amd64
-          load: true
-          tags: relay:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Restore Godot
         id: godot
@@ -70,12 +54,29 @@ jobs:
           unzip -q -j godot.zip -d ~/godot
           rm godot.zip
 
+      - name: Run tests
+        run: |
+          ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --import
+          ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script tests/test_relay_metrics.gd
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build for the smoke test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: relay:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: Smoke test the image
         run: |
           docker run -d --name relay -p 24680:24680/udp -p 127.0.0.1:24681:24681 relay:test
           ok=0
           for i in 1 2 3; do
-            if timeout 30 ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://relay/relay_probe.gd -- 127.0.0.1:24680; then
+            if timeout 30 ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path . --script res://relay_probe.gd -- 127.0.0.1:24680; then
               ok=1; break
             fi
             sleep 2
@@ -111,7 +112,7 @@ jobs:
       - name: Build for amd64 and arm64, and push
         uses: docker/build-push-action@v6
         with:
-          context: relay
+          context: .
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}

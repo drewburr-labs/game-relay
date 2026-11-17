@@ -3,8 +3,8 @@ extends SceneTree
 ## with the room code, and everyone's lines go to everyone. Copy the shape of
 ## this into your game; it needs only relay_client.gd and relay_protocol.gd.
 ##
-##   godot --headless --path . --script res://relay/example/chat.gd -- host
-##   godot --headless --path . --script res://relay/example/chat.gd -- join KX4PZ
+##   godot --headless --path . --script res://example/chat.gd -- host
+##   godot --headless --path . --script res://example/chat.gd -- join KX4PZ
 ##
 ## Add `--relay=HOST[:PORT]` to use a relay other than the public one.
 

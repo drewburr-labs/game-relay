@@ -1,7 +1,7 @@
 extends SceneTree
-## Entry point for the relay server; the Docker image runs this. From the
-## game's folder:
-##   godot --headless --path . --script res://relay/run_relay.gd -- [--port=24680] [--bind=*]
+## Entry point for the relay server; the Docker image runs this. From this
+## folder:
+##   godot --headless --path . --script res://run_relay.gd -- [--port=24680] [--bind=*]
 ##       [--metrics-port=24681] [--metrics-bind=*]
 ## With --metrics-port it also serves its metrics over HTTP on that TCP port
 ## (relay_metrics_http.gd). Keep that port private: only the UDP port needs

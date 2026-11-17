@@ -5,11 +5,11 @@ extends SceneTree
 ## the HTTP side answers properly and never holds the relay up.
 ##   godot --headless --path . --script tests/test_relay_metrics.gd
 
-const RelayServer = preload("res://relay/relay_server.gd")
-const RelayClient = preload("res://relay/relay_client.gd")
-const Metrics = preload("res://relay/relay_metrics.gd")
-const MetricsHttp = preload("res://relay/relay_metrics_http.gd")
-const RP = preload("res://relay/relay_protocol.gd")
+const RelayServer = preload("res://relay_server.gd")
+const RelayClient = preload("res://relay_client.gd")
+const Metrics = preload("res://relay_metrics.gd")
+const MetricsHttp = preload("res://relay_metrics_http.gd")
+const RP = preload("res://relay_protocol.gd")
 const Watchdog = preload("res://tests/watchdog.gd")
 
 ## Fails the run, saying where it was, if it takes longer than this; a normal
