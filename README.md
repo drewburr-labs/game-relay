@@ -2,7 +2,7 @@
 
 A relay for online games, so players behind home routers can play together without port forwarding. A host opens a room and gets a five-letter code; friends join with the code; the relay passes each room's packets between its host and clients without reading them.
 
-**Any game can use it**: rooms belong to a game id, the host picks the room size, and packets keep their channel and reliability. There's a public one at `saucer.drewburr.com:24680`, or you can run your own from the image. It was built for [Saucer Showdown](https://github.com/drewburr-labs/saucer-showdown), which plays through the public one.
+**Any game can use it**: rooms belong to a game id, the host picks the room size, and packets keep their channel and reliability. There's a public one at `relay.drewburr.com:24680`, or you can run your own from the image. It was built for [Saucer Showdown](https://github.com/drewburr-labs/saucer-showdown), which plays through the public one.
 
 It's plain GDScript running on a headless Godot 4.7, packaged as a container.
 
@@ -116,7 +116,7 @@ docker run -p 24680:24680/udp ghcr.io/drewburr-labs/game-relay
 - It keeps no state and logs to stdout, one line per room opened and closed, with its game id. Idle, it uses well under 1% of a core and about 35 MB.
 - It serves [metrics](#metrics) on **TCP** port 24681. That port is for you, not the internet: the command above doesn't publish it.
 - Options go after the image name: `--port=N`, `--bind=ADDRESS`, `--metrics-port=N` and `--metrics-bind=ADDRESS`. Options replace the image's defaults, so repeat `--metrics-port=24681` to keep metrics on (leave it out and they're off).
-- `HOST_NAME` and `PORT` in `relay_protocol.gd` are the public relay, `saucer.drewburr.com:24680`. To have your game use your own, pass your address to `host()` and `join()` instead.
+- `HOST_NAME` and `PORT` in `relay_protocol.gd` are the public relay, `relay.drewburr.com:24680`. To have your game use your own, pass your address to `host()` and `join()` instead.
 
 ## Build it
 
@@ -145,7 +145,7 @@ godot --headless --path . --script tests/test_relay_metrics.gd
 ## Check a relay
 
 ```bash
-godot --headless --path . --script res://relay_probe.gd -- saucer.drewburr.com
+godot --headless --path . --script res://relay_probe.gd -- relay.drewburr.com
 ```
 
 It opens a room, checks that a different game id can't join it, joins as a friend and passes a packet each way on channel 1. Then it exits 0, or 1 with the step that failed.
